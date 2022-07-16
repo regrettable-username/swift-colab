@@ -1,14 +1,14 @@
 #!/bin/bash
-if [[ ! -d /opt/swift ]]; then
-  mkdir /opt/swift
-  mkdir /opt/swift/include
-  mkdir /opt/swift/internal-modules
-  mkdir /opt/swift/lib
-  mkdir /opt/swift/packages
-  mkdir /opt/swift/progress
-  mkdir /opt/swift/toolchains
-  touch /opt/swift/toolchains/index
-  echo "swift" > /opt/swift/runtime
+if [[ ! -d ./swift ]]; then
+  mkdir ./swift
+  mkdir ./swift/include
+  mkdir ./swift/internal-modules
+  mkdir ./swift/lib
+  mkdir ./swift/packages
+  mkdir ./swift/progress
+  mkdir ./swift/toolchains
+  touch ./swift/toolchains/index
+  echo "swift" > ./swift/runtime
 fi
 
 # Process command-line arguments
@@ -29,7 +29,7 @@ if [[ "$1" == *"://"* ]]; then
       location=${#index_lines[*]}
     fi
     index_lines=( "${index_lines[@]}" "$line" )
-  done < /opt/swift/toolchains/index
+  done < ./swift/toolchains/index
   
   if [[ $location == -1 ]]; then
     location=${#index_lines[*]}
@@ -37,10 +37,10 @@ if [[ "$1" == *"://"* ]]; then
       index_contents="$1"
     else
       NEWLINE=$'\n'
-      index_contents=`cat /opt/swift/toolchains/index`
+      index_contents=`cat ./swift/toolchains/index`
       index_contents="${index_contents}${NEWLINE}${1}"
     fi
-    echo "$index_contents" > /opt/swift/toolchains/index
+    echo "$index_contents" > ./swift/toolchains/index
   fi
   
   version="url-${location}"
@@ -88,8 +88,8 @@ if [[ $toolchain_type == "invalid" || $mode == "invalid" ]]; then
   exit -1
 fi
 
-cd /opt/swift
-echo $mode > /opt/swift/mode
+cd ./swift
+echo $mode > ./swift/mode
 
 # Determine whether to reuse cached files
 
@@ -135,15 +135,15 @@ else
   echo "Downloading Swift $swift_desc"
   
   if [[ $toolchain_type == "url" ]]; then
-    mkdir /opt/swift/download
-    cd /opt/swift/download
+    mkdir ./swift/download
+    cd ./swift/download
     
     curl $1 | tar -xz
     src_filename="$(ls)"
-    mv $src_filename "/opt/swift/toolchain"
+    mv $src_filename "./swift/toolchain"
     
-    cd /opt/swift
-    rm -r /opt/swift/download
+    cd ./swift
+    rm -r ./swift/download
   else
     if [[ $toolchain_type == "release" ]]; then
       branch="swift-$version-release"
@@ -152,9 +152,9 @@ else
       branch="development"
       release="swift-DEVELOPMENT-SNAPSHOT-$version-a"
     fi
-    
-    tar_file="$release-ubuntu18.04.tar.gz"
-    url="https://download.swift.org/$branch/ubuntu1804/$release/$tar_file"
+    #https://download.swift.org/swift-5.6.2-release/xcode/swift-5.6.2-RELEASE/swift-5.6.2-RELEASE-osx.pkg
+    tar_file="$release-osx.tar.gz"
+    url="https://download.swift.org/$branch/xcode/$release/$tar_file"
     
     curl $url | tar -xz
     mv "$release-ubuntu18.04" "toolchain"
@@ -163,7 +163,7 @@ else
   echo $version > "progress/swift-version"
 fi
 
-export PATH="/opt/swift/toolchain/usr/bin:$PATH"
+export PATH="./swift/toolchain/usr/bin:$PATH"
 
 # Download Swift-Colab
 
@@ -173,13 +173,13 @@ if [[ $mode == "dev" || ! -e "progress/downloaded-swift-colab" ]]; then
   fi
   
   git clone --depth 1 --branch main \
-    "https://github.com/philipturner/swift-colab"
+    "https://github.com/regrettable-username/swift-colab"
   
-  swift_colab_include="/opt/swift/swift-colab/Sources/include"
+  swift_colab_include="./swift/swift-colab/Sources/include"
   for file in $(ls $swift_colab_include)
   do
     src_path="$swift_colab_include/$file"
-    dst_path="/opt/swift/include/$file"
+    dst_path="./swift/include/$file"
     if [[ -e $dst_path ]]; then
       rm $dst_path
     fi
@@ -205,15 +205,15 @@ then
   cd build
   
   clang++ -Wall -O0 -I../include -c ../LLDBProcess.cpp -fpic
-  clang++ -Wall -O0 -L/opt/swift/toolchain/usr/lib -shared -o \
+  clang++ -Wall -O0 -L./swift/toolchain/usr/lib -shared -o \
     libLLDBProcess.so LLDBProcess.o -llldb
   
-  lldb_process_link="/opt/swift/lib/libLLDBProcess.so"
+  lldb_process_link="./swift/lib/libLLDBProcess.so"
   if [[ ! -L $lldb_process_link ]]; then
     ln -s "$(pwd)/libLLDBProcess.so" $lldb_process_link
   fi
   
-  cd /opt/swift
+  cd ./swift
   echo $version > "progress/lldb-compiler-version"
 else
   echo "Using cached Swift LLDB bindings"
@@ -242,13 +242,13 @@ Removing existing JupyterKernel build products."
   swiftc -Onone $source_files \
     -emit-module -emit-library -module-name "JupyterKernel"
   
-  jupyterkernel_lib="/opt/swift/lib/libJupyterKernel.so"
+  jupyterkernel_lib="./swift/lib/libJupyterKernel.so"
   if [[ ! -L $jupyterkernel_lib ]]; then
     echo "Adding symbolic link to JupyterKernel binary"
     ln -s "$(pwd)/libJupyterKernel.so" $jupyterkernel_lib
   fi
   
-  cd /opt/swift
+  cd ./swift
   echo $version > "progress/jupyterkernel-compiler-version"
 else
   echo "Using cached JupyterKernel library"
@@ -260,7 +260,7 @@ if [[ $mode == "dev" || ! -e "progress/registered-jupyter-kernel" ]]; then
   register_kernel='
 import Foundation
 let libJupyterKernel = dlopen(
-  "/opt/swift/lib/libJupyterKernel.so", RTLD_LAZY | RTLD_GLOBAL)!
+  "./swift/lib/libJupyterKernel.so", RTLD_LAZY | RTLD_GLOBAL)!
 let funcAddress = dlsym(libJupyterKernel, "JupyterKernel_registerSwiftKernel")!
 
 let JupyterKernel_registerSwiftKernel = unsafeBitCast(
@@ -274,7 +274,7 @@ JupyterKernel_registerSwiftKernel()
   touch "progress/registered-jupyter-kernel"
 fi
 
-runtime=`cat "/opt/swift/runtime"`
+runtime=`cat "./swift/runtime"`
 runtime=$(echo $runtime | tr '[:upper:]' '[:lower:]')
 
 if [[ $runtime == "swift" ]]; then
